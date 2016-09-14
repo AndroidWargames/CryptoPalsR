@@ -1,0 +1,2111 @@
+1.1.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+require(base64enc)
+paste("49276d206b696c6c696e6720",
+      "796f757220627261696e206c",
+      "696b65206120706f69736f6e",
+      "6f7573206d757368726f6f6d",sep="")
+
+h2raw <- function(inp){
+        h <- sapply(seq(1, nchar(inp), by=2),
+                    function(x) substr(inp, x, x+1))
+        as.raw(strtoi(h, 16L))
+}
+
+raw2h <- function(inp){
+        paste(as.character(inp),collapse="")
+}
+
+hb64 <- function(inp){
+        base64encode(h2raw(inp))
+}
+
+b64h <- function(inp){
+        raw2h(base64decode(inp))
+}
+
+
+1.2.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+
+"1c0111001f010100061a024b53535009181c" #string 1
+"686974207468652062756c6c277320657965" #string 2
+
+hexor <- function(x,y){
+        raw2h(xor(h2raw(x),h2raw(y)))
+}
+
+"746865206b696420646f6e277420706c6179" #output string
+
+
+1.3.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source('EnglishTest2.R')
+source("1.2.R")
+
+# bacon <- "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
+
+singleByte <- function(inp){
+        len <- length(h2raw(inp))
+        a <- c()
+        for(i in 0:255){
+                xor <- raw2h(rep(as.raw(i),len))
+                bytes <- h2raw(hexor(xor,inp))
+                bytes <- bytes[!bytes==as.raw(0)]
+                a[i+1] <- grammer2(rawToChar(bytes))
+        }
+        i <- match(max(a,na.rm=TRUE),a) -1
+        xor <- raw2h(rep(as.raw(i),len))
+        bytes <- h2raw(hexor(xor,inp))
+        bytes <- bytes[!bytes==as.raw(0)]
+        c(rawToChar(bytes),as.character(i))
+}
+
+
+1.4.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+require(textcat)
+
+x <- readLines("1.4.Source.txt")
+
+j = 0
+singles <- function(x){
+        for(i in x){
+                j = j+1
+                print(j)
+                i <- substring(i,first=1,last=nchar(i))
+                if(grammer(singleByte(i)[1])>.8){
+                        print(singleByte(i))
+                        break
+                }
+        }
+}
+
+
+1.5.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+
+burn <- "Burning 'em, if you ain't quick and nimble
+I go crazy when I hear a cymbal"
+
+repXOR <- function(text,ex){
+        r <- charToRaw(text)
+        x <- charToRaw(ex)
+        xx <- rep(x,(length(r)/length(x))-1)
+        raw2h(xor(r,xx))
+}
+
+#repXOR(burn,"ICE") == "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
+
+
+1.6.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+source("1.3.R")
+source("1.4.R")
+
+text <- h2raw(b64h(readLines("1.6.Source.txt")))
+
+ham <- function(a,b){
+        a <- xor(a,b)
+        b <- rawToBits(a)
+        sum(b=="01")
+}
+
+chunk <- function(x,n){
+        a <- suppressWarnings(split(x,0:(length(x)-1) %/% n))
+        names(a) <- NULL
+        a
+}
+
+unchunk <- function(x){
+        as.vector(unlist(x))
+}
+
+# Determines key length of Vigenere encoded inp
+drXOR <- function(inp){
+        # initialize list
+        a <- c()
+        for(i in 2:50){
+                temp <- c()
+                for(j in 1:100){
+                        temp[j] <- ham(inp[j],inp[j+i])
+                }
+                a[i-1] <- sum(temp)
+        }
+        match(min(a),a)+1
+}
+
+# determines repeating XOR decryption for inp given key Length n
+breaker <- function(inp,n){
+        # split into blocks
+        blocks <- split(inp,1:n)
+
+        # initialize raw output
+        a <- c()
+
+        # for each block:
+        # - convert to hex
+        # - perform singleByte
+        # - store as output
+        cat("Key: ")
+        for(i in seq_along(blocks)){
+                y <- raw2h(blocks[[i]])
+                z <- singleByte(y)
+                a[i] <- z[2]
+                cat(rawToChar(as.raw(as.numeric(a[i]))))
+        }
+
+        # return list as raw vector
+        cat("\n\n")
+        as.raw(as.numeric(a))
+}
+
+breakVigenere <- function(inp){
+
+        len <- suppressWarnings(drXOR(inp))
+        cat(paste("Key Length:",as.character(len)))
+        cat("\n\n")
+
+        code <- breaker(inp,len)
+        out <- suppressWarnings(rawToChar(xor(code,inp)))
+
+        cat("\n\nMessage:\n")
+        cat(out)
+}
+
+
+
+
+1.7.R
+
+
+require(openssl)
+require(digest)
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+text <- readLines('1.7.Source.txt')
+
+text <- h2raw(b64h(text))
+yskey <- charToRaw("YELLOW SUBMARINE")
+a <- AES(key=yskey,mode = "ECB")
+cat(a$decrypt(text))
+
+
+1.8.R
+
+
+require(openssl)
+require(digest)
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.6.R")
+hexes <- readLines('1.8.Source.txt')
+
+detectECB <- function(hexLines){
+        for(i in seq_along(hexLines)){
+                r <- h2raw(hexLines[i])
+                if(isECB(r)) break
+
+        }
+        cat("Row: ")
+        cat(i)
+        cat("\n")
+        hexLines[i]
+}
+
+isECB <- function(inp){
+        blocks <- chunk(inp,16)
+        sum(duplicated(blocks))>0
+}
+
+
+2.10.R
+
+
+require(digest)
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+source("1.6.R")
+source("2.9.R")
+
+k <- charToRaw("YELLOW SUBMARINE")
+
+IV <- as.raw(rep(0,16))
+
+mess <- h2raw(b64h(unlist(readLines('2.10.source.txt'))))
+
+unpadRaw <- function(inp){
+        head(inp,-1*as.integer(tail(inp,1)))
+}
+
+DeCBC <- function(inp,iv,key){
+
+        a <- AES(key,mode="ECB")
+        blocks <- chunk(c(iv,inp),16)
+        out <- raw(0)
+        for(i in 2:length(blocks)){
+                temp <- xor(blocks[[i-1]],
+                        a$decrypt(blocks[[i]],raw=T))
+                out <- c(out,temp)
+        }
+        out
+}
+
+EnCBC <- function(inp,iv,key){
+        if(class(inp)=="character") inp <- charToRaw(inp)
+        out <- iv
+        inp <- padRaw(inp,16)
+        a <- AES(key,mode="ECB")
+        blocks <- chunk(inp,16)
+        for(i in 1:length(blocks)){
+                temp <- xor(tail(out,16),blocks[[i]])
+                temp <- a$encrypt(temp)
+                out <- c(out,temp)
+        }
+        out[-16:0]
+}
+
+EnECB <- function(inp,key){
+        if(class(inp)=="character"){inp <- charToRaw(inp)}
+        inp <- padRaw(inp,p=16)
+        a <- AES(k,mode="ECB")
+        a$encrypt(inp)
+}
+
+DeECB <- function(inp,key){
+        a <- AES(k,mode="ECB")
+        unpadRaw(a$decrypt(inp,raw=T))
+}
+
+#DeCBC(mess,IV,k)
+
+
+2.11.R
+
+
+require(digest)
+require(openssl)
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.10.R")
+source("1.8.R")
+
+randkey <- function() as.raw(sample(0:127,16,TRUE))
+
+
+encryption_oracle <- function(inp){
+        xb <- sample(5:10,2)
+        inp <- c(as.raw(sample(0:127,xb[1],TRUE)),
+                 inp,
+                 as.raw(sample(0:127,xb[2],TRUE)))
+        k <- randkey()
+        iv <- randkey()
+        r <- sample(c(T,F),1)
+        if(r){
+                out <- EnECB(inp,k)
+        }else{
+                out <- EnCBC(inp,iv,k)
+        }
+        out
+}
+
+
+
+
+2.12.R
+
+
+require(digest)
+require(openssl)
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.10.R")
+source("1.8.R")
+
+randkey <- function() as.raw(sample(0:127,16,TRUE))
+
+# ALL THESE FUNCTIONS ONLY WORK WITH THESE
+# VALUES INITIALIZED IN THE GLOBAL ENVIRONMENT
+#sKey <<- randkey()
+#sec <<- "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+
+baatEN <- function(inp){
+        myst <- sec
+        myst <- base64_decode(myst)
+        out <- EnECB(c(inp,myst),sKey)
+        out
+}
+
+cSize <- function(){
+        l <- length(baatEN(""))
+        for(i in 1:48){
+                a <- paste(rep("A",i),collapse = "")
+                if(length(baatEN(a))>l){
+                        break
+                }
+        }
+        length(baatEN(a)) - l
+}
+
+#isECB(baatEN("                                                     "))
+
+
+baatDE <- function(){
+        dic <- new.env()
+        l <- length(baatEN(raw()))
+        out <- raw()
+
+        for(i in 1:l){
+                # make a prepended repeating string
+                pre <- c(rep(as.raw(65),l-i))
+                code <- head(baatEN(pre),l)
+                sauce <- base64_encode(code)
+                for(i in 0:127){
+                        temp <- base64_encode(head(baatEN(c(pre,out,as.raw(i))),l))
+                        dic[[temp]] <- as.raw(i)
+                }
+                #tryCatch(dic[[sauce]],break)
+                out <- c(out, dic[[sauce]])
+                cat(rawToChar(dic[[sauce]]))
+        }
+        out
+}
+
+
+
+
+
+2.13.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.12.R")
+
+# ALL THESE FUNCTIONS ONLY WORK WITH THIS
+# VALUE INITIALIZED IN THE GLOBAL ENVIRONMENT
+# gKey <<- randkey()
+
+parser <- function(inp){
+        a <- strsplit(inp,"&")[[1]]
+        b <- new.env()
+        c <- lapply(a,FUN=function(x){
+                y <- strsplit(x,"=")[[1]]
+                b[[y[1]]] <- y[2]
+        })
+        b
+}
+
+emailer <- function(inp){
+        inp <- sub("=","",inp)
+        inp <- sub("&","",inp)
+        a <- paste("email=",
+                   inp,
+                   "&uid=10&role=user",sep="")
+        a
+}
+
+profile <- emailer("example@ok.gov")
+
+
+emEn <- function(inp){
+        a <- emailer(inp)
+        a <- charToRaw(a)
+        EnECB(a,gKey)
+}
+
+emDe <- function(inp){
+        a <- rawToChar(DeECB(inp))
+        parser(a)
+}
+
+emailBreak <- function(){
+        a <- charToRaw("          admin")
+        a <- c(a,rep(as.raw(11),11))
+
+        b <- rep(as.raw(15),26)
+
+        t <- emEn(rawToChar(a))[17:32]
+        u <- emEn(rawToChar(b))[17:32]
+
+        fish <- paste(paste(rep("a",3),collapse = ""),
+                      "@gmail.com",
+                      sep="")
+
+        print(fish)
+        out <- emEn(fish)
+        out <- c(head(out,-16),t)
+        out
+}
+
+
+2.14.R
+
+
+require(digest)
+require(openssl)
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.10.R")
+source("1.8.R")
+
+randkey <- function() as.raw(sample(0:127,16,TRUE))
+
+# ALL THESE FUNCTIONS ONLY WORK WITH THESE
+# VALUES INITIALIZED IN THE GLOBAL ENVIRONMENT
+#sKey <<- randkey()
+#sec <<- "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+
+baatEN2 <- function(inp){
+        myst <- sec
+        myst <- base64_decode(myst)
+        out <- EnECB(c(sample(as.raw(0:127),
+                              sample(1:32,1),
+                              replace=TRUE),
+                       inp,
+                       myst),
+                     sKey)
+        out
+}
+
+cSize <- function(){
+        l <- length(baatEN(""))
+        for(i in 1:48){
+                a <- paste(rep("A",i),collapse = "")
+                if(length(baatEN(a))>l){
+                        break
+                }
+        }
+        length(baatEN(a)) - l
+}
+
+#isECB(baatEN("                                                     "))
+
+
+baatDE2 <- function(){
+        # create a dictionary, raw output 'out'
+        dic <- new.env()
+        out <- raw()
+
+        # chunk a bunch of raw stuff and send it to the oracle
+        r <- chunk(baatEN2(raw(64)),16)
+
+        # discover the duplicated string, store as 's'
+        s <- r[duplicated(r)][1]
+
+        # initialize 'k'
+        k <- 1
+
+        # do while less than number of chunks
+        while(k<length(r)+1){
+                # for each byte of block
+                for(i in 0:15){
+
+                        t <- c(raw(16),rep(as.raw(65),15-i))
+
+                        while(T){
+                                u <- chunk(baatEN2(t),16)
+                                if(s %in% u) break
+                        }
+                        if(!is.raw(u[(match(s, u) + k)][[1]])){
+                                x1 <<- u[(match(s, u) + k)][[1]]
+                                x2 <<- u
+                                x3 <<- s
+                                x4 <<- k
+                        }
+                        w <- base64_encode(u[(match(s,u)+k)][[1]])
+                        for(j in 3:127){
+                                while(T){
+                                        v <- chunk(
+                                                baatEN2(c(t,
+                                                          out,
+                                                          as.raw(j))),16)
+                                        if(s %in% v) break
+                                }
+                                x <- base64_encode(
+                                        v[(match(s,v)+k)][[1]])
+
+                                dic[[x]] <- as.raw(j)
+                        }
+                        y <- dic[[w]]
+                        if(!is.raw(y)) stop
+                        cat(rawToChar(as.raw(y)))
+                        out <- c(out,y)
+                }
+                k <- k + 1
+        }
+        out
+}
+
+
+
+
+
+2.15.R
+
+
+
+unpadVal <- function(inp){
+
+        if(!is.raw(inp)){
+                stop("Input not of class(raw)")
+                geterrmessage()
+        }
+
+        len <- as.integer(tail(inp,1))
+
+        if (len>32){
+                stop("Last byte exceeds max pad")
+                geterrmessage()
+        }
+        if (len==0){
+                stop("Last byte = 0")
+                geterrmessage()
+        }
+        if (len > length(inp)){
+                stop("Invalid Pad")
+                geterrmessage()
+        }
+        if (sum(tail(inp,len)==as.raw(len))!=len){
+                stop("Invalid Pad")
+                geterrmessage()
+        }
+        unpadRaw(inp)
+}
+
+
+2.16.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.14.R")
+
+# ALL THESE FUNCTIONS ONLY WORK WITH THESE
+# VALUES INITIALIZED IN THE GLOBAL ENVIRONMENT
+# sKey <<- randkey()
+# IV <<- randkey()
+
+bitflipEn <- function(inp){
+        if(!is.character(inp)){
+                stop("Character input required")
+                geterrmessage()
+        }
+        a1 <- "comment1=cooking%20MCs;userdata="
+        a2 <- ";comment2=20like%20a%20pound%20of%20bacon"
+
+        # strip invalid values ('=' and '&') out 'inp'
+        inp <- sub("=","",inp)
+        inp <- sub("&","",inp)
+
+        # paste the comments and 'inp' together, convert to raw, and pad
+        a <- paste(a1,inp,a2,sep="")
+        b <- charToRaw(a)
+        c <- padRaw(b,16)
+
+        # encrypt the output
+        EnCBC(c,IV,sKey)
+}
+
+bitflipDe <- function(inp){
+        if(!is.raw(inp)){
+                stop("Raw input required")
+                geterrmessage()
+        }
+
+        # decrypt, unpad and convert to character
+        a <- charToRaw(DeCBC(inp,IV,sKey))
+        b <- unpadVal(a)
+        c <- rawToChar(b)
+
+        # determin if admin=true is in string
+        grepl(";admin=true;",c)
+}
+
+bitflipBreak <- function(inp){
+        # create desired text with "scrambled block" before
+        a <- paste(rep(" ",16),collapse = "")
+        b <- paste(a,"     ;admin=true",sep="")
+
+        # Convert to raw and xor each byte with as.raw(1)
+        c <- charToRaw(b)
+        d <- xor(c,rep(as.raw(1),length(c)))
+        e <- rawToChar(d)
+
+        # Encrypt previous piece AND nothing (to find out
+        # where the difference occurs)
+        f <- chunk(bitflipEn(""),16)
+        g <- chunk(bitflipEn(e),16)
+
+        # Locate "scrambled block" and xor with as.raw(1)
+        h <- match(TRUE,!(g %in% f))
+        i <- xor(as.vector(unlist(g[h])),rep(as.raw(1),16))
+        g[h] <- chunk(i,16)
+
+        # Decrypt
+        bitflipDe(as.vector(unlist(g)))
+
+}
+
+
+2.9.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+
+padRaw <- function(inp,p){
+        len <- p - (length(inp) %% p)
+        pd <- rep(as.raw(len),len)
+        if(length(pd) == 0){
+                pd <- rep(as.raw(p),p)
+        }
+        c(inp,pd)
+}
+
+
+3.17.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.14.R")
+source("2.15.R")
+
+
+cbcpadEn <- function(){
+        # Read Text
+        a <- sample(readLines('3.17.Source.txt'),1)
+
+        # Create key and IV
+        if(!exists("mainKey")) mainKey <<- randkey()
+        IV1 <- randkey()
+
+        # encrypt, attaching IV to head of string
+        c(IV1,EnCBC(a,IV1,mainKey))
+}
+
+cbcpadDe <- function(inp){
+        # chop off IV
+        iv <- head(inp,16)
+        inp <- tail(inp,-16)
+
+        # decrypt text
+        out <- DeCBC(inp,iv,mainKey)
+        out
+
+        # validate output
+        ok <- FALSE
+        try(ok <- is.raw(unpadVal(out)),silent=TRUE)
+        ok
+}
+
+
+cbcpadBreak <- function(){
+        # draw a random encrypted string
+        inp <- cbcpadEn()
+        out <- raw()
+        # detemine # of blocks (subract one block to account for IV)
+        l <- length(inp)/16-1
+
+        # for each block
+        for(i in 1:l){
+                # take the last 32 characters of inp
+                ct <- tail(inp,32)
+                # initialize block output 'temp'
+                temp <- raw(16)
+                # for each byte in block
+                for(j in 0:15){
+                        # for each possible character
+                        for(k in 128:0){
+                                # create 'a', which is:
+                                #       - a head of 00's
+                                #       - the character to be tested
+                                #       - a tail of padding bytes
+                                a <- c(raw(15-j),
+                                       as.raw(k),
+                                       rep(as.raw(j+1),j))
+
+                                # xor the preceding block against what's been
+                                # solved already
+                                x <- xor(head(ct,16),temp)
+
+                                # xor THAT with 'a'
+                                y <- xor(x,a)
+
+                                # add the second half of bytes
+                                y <- c(y,tail(ct,16))
+                                if(cbcpadDe(y)){
+                                        temp[16-j] <- xor(as.raw(k),as.raw(j+1))
+                                        break
+                                }
+                        }
+                        cat(rawToChar(temp[16-j]))
+                }
+                # chop off the last block of inp
+                inp <- head(inp,-16)
+
+                # append out to temp (we're working back to front)
+                out <- c(temp,out)
+        }
+        unpadRaw(out)
+}
+
+
+3.18.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.16.R")
+require(openssl)
+
+exCTR <- 'L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ=='
+
+EnCTR <- function(inp,nonce=raw(8),k){
+
+        # validate inputs as raw
+        if(!is.raw(inp)) inp <- charToRaw(inp)
+        if(!is.raw(nonce)) nonce <- charToRaw(nonce)
+        if(!is.raw(k)) k <- charToRaw(k)
+
+        # validate nonce as 8 bytes
+        if(length(nonce)!=8){
+                stop(paste("Invalid nonce: length = ",
+                           as.character(length(nonce)),sep=""))
+                geterrmessage()
+        }
+        # get length of input string
+        t <- chunk(inp,16)
+
+        # initialize output as raw
+        out <- raw()
+
+        # NOTE: seq_along begins at 1, not 0. values subtracted by one
+        for(i in seq_along(t)){
+                # set 'counter'
+                counter <- as.raw((i-1) %% 256)
+                for(j in 1:7){
+                        counter <- c(counter,as.raw((i-1) %/% (256^(j))))
+                }
+
+                # append 'counter' to 'nonce'
+                stream <- c(nonce,counter)
+
+                # create encryption object & encrypt 'stream'
+                a <- AES(k,mode="ECB")
+                x <- a$encrypt(stream)
+
+                # get relevant code chunk
+                p <- unchunk(t[i])
+
+                # shorten 'x' (keystream) if code chunk shorter than blocksize
+                if(length(p)<16){
+                        x <- head(x,length(p))
+                }
+
+                # xor chunk with keystream
+                temp <- xor(x,p)
+
+                # append result to output 'out'
+                out <- c(out,temp)
+        }
+        out
+}
+
+
+3.19.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("3.18.R")
+source("1.3.R")
+
+if(!exists("mainKey")) mainKey <<- randkey()
+
+# So here's the theory behind this file:
+#
+# Basically, If we XOR all the ciphertexts against
+# one specific ciphertext (the reference string), we
+# should get the XOR of their respective plaintexts
+# (because they've all been XOR'd against the same
+# keystream). Interestingly, character 32 (" ")
+# below 64 on the ASCII Table, which means that the XOR
+# of " " and any character is going to be
+# greater than that of other characters, the cutoff, being at
+# 64. So what we do is go byte by byte through the XORs
+# (e.g. first iteration we take the first byte from each
+# XOR) and we determine whether there are greater
+# or fewer values above 64. if there are more, then the
+# reference string is likely a " ". If there are fewer,
+# we assume the most frequent among those over-64 values
+# are actually the space (which we're hoping is more frequent
+# than ',' or '.', etc). Ultimately we're left with a set
+# of ciphertexts, and the best guess at a decryption
+# keystream
+#
+# Additionally, we have the Editor, which (since the other
+# method isn't error proof) allows us to edit byte by byte,
+# substituting obvious corrections and updating the
+# keystream.
+
+
+# here we go...
+
+# load plaintexts and create ciphertexts
+pts <- lapply(readLines('3.19.Source.txt'),base64_decode)
+cts <- lapply(pts,FUN=function(x) EnCTR(x,k=mainKey))
+# kill it so you can't see it
+pts <- raw()
+
+# get second-longest string
+n <- unlist(lapply(cts,length))
+m <- length(n)
+ml <- sort(n,partial=m-1)[m-1]
+Q <- match(ml,n)
+
+a <- list()
+for(i in 1:length(cts)){
+                # figure which one is shorter
+                l <- min(length(cts[[Q]]),
+                         length(cts[[i]]))
+                # cut to short length
+                x <- head(cts[[Q]],l)
+                y <- head(cts[[i]],l)
+                #store value in a
+                a[i] <- list(xor(x,y))
+}
+
+# set master values
+masters <- cts
+# set reference string
+master <- masters[[Q]]
+
+noncense <- function(a,cts,master){
+        #for each byte
+        ml <- max(unlist(lapply(cts,length)))
+        for(i in 1:ml){
+                # exclude finished strings
+                cts <- cts[n>=i]
+                n <- n[n>=i]
+                # create blank raws
+                cl <- length(cts)
+                x1 <- raw(cl)
+                x2 <- raw(cl)
+                # fill raws with nth bytes
+                for(j in 1:cl){
+                        x1[j] <- a[[j]][i]
+                        x2[j] <- cts[[j]][i]
+                }
+                # convert to int
+                y <- unlist(lapply(x1,as.integer))
+                # figure out proportion over/under 64
+                z <- sum(y>=64)/length(y)
+                if(z>.5){
+                        # assign xor(byte," ")
+                        out[i] <- xor(as.raw(32),master[i])
+                }else{
+                        # take only numbers over 64
+                        v <- y[y>=64]
+                        if(length(v)==0) v <- 1
+                        # get the most frequent byte
+                        v1 <- match(max(tabulate(v)),tabulate(v))
+                        # convert to raw
+                        mo <- as.raw(v1)
+                        # xor with " "
+                        no <- xor(as.raw(32),mo)
+                        # xor with reference ciphertext
+                        out[i] <- xor(no,master[i])
+                }
+        }
+        out
+}
+
+# done <- breaker(cts,master)
+
+EditorDisplay <- function(out,masters){
+        lapply(masters,FUN=function(x){
+                a <- min(length(x),length(out))
+                x <- head(x,a)
+                b <- head(out,a)
+                rawToChar(xor(x,b))
+        })
+}
+
+Editor <- function(out,Q,s,f,masters){
+        # XOR replacement character (index 'Q')
+        # with s and f, the old and new character values
+        out[Q] <- xor(out[Q],xor(charToRaw(s),charToRaw(f)))
+        print(EditorDisplay(out,masters))
+        out
+}
+
+# Final decryption (hex coded):
+# "ee699ab278da4ffd662888d1dc32b30a276981983637ba1dfb518dda98f8372a31cf154f"
+
+
+3.20.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.6.R")
+source("3.19.R")
+require(openssl)
+
+startCTR <- function(sauce){
+        pt20 <- lapply(readLines(sauce),base64_decode)
+        ct20 <- lapply(pt20,FUN=function(x) EnCTR(x,k=mainKey))
+        pt20 <- raw()
+        ct20
+}
+
+breakCTR <- function(inp){
+        if(!exists("mainKey")) mainKey <<- randkey()
+
+        l <- min(unlist(lapply(inp,length)))
+        print(l)
+        ctCut <- unlist(lapply(inp, FUN=function(x) head(x,l)))
+
+        key <- breaker(ctCut,l)
+
+        rawToChar(xor(key,ctCut))
+}
+
+
+3.21.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("1.1.R")
+require(bitops)
+
+# this architecture stores an environment called 'RandObj'
+# to the global environment. This means that all variables
+# are retrievable from RandObj at any time, but for the
+# purposes of the challenge, its values are never referenced
+# by the 'attacker'
+
+Rand <- function(seed = integer()){
+        # test for existing Random Object, create one
+        if(!exists("RandObj")){
+                RandObj <<- initRando()
+        }
+
+        # test for seed, re-seed if argument exists
+        if(length(seed)>0){
+                RandObj <<- seed_mt(RandObj,seed)
+        }
+
+        # pull the correct value from the object
+        RandObj <<- extract_number(RandObj)
+
+        # return that value
+        RandObj$y
+}
+
+RandSeed <- function(seed){
+        # test for existing Random Object, create one
+        # (this is so we can set the seed independent
+        # of drawing a number, required for challenge 22)
+        if(!exists("RandObj")){
+                RandObj <<- initRando()
+        }
+        # seed Random Object
+        if(length(seed)>0){
+                RandObj <<- seed_mt(RandObj,seed)
+        }
+}
+
+initRando <- function(){
+
+        # initialization for MT19937 per the values
+        # given by wikipedia
+
+        X <- new.env()
+        X$w1 <- 32
+        X$n1 <- 624
+        X$m1 <- 397
+        X$r1 <- 31
+        X$a1 <- h2int("9908b0df")
+        X$u1 <- 29
+        X$d1 <- h2int("ffffffff")
+        X$s1 <- 17
+        X$b1 <- h2int("9d2c5680")
+        X$t1 <- 37
+        X$c1 <- h2int("efc60000")
+        X$l1 <- 43
+        X$f1 <- 1812433253
+
+        X$lower_mask <- (bitShiftL(1,X$r1-1)*2-1)
+        X$upper_mask <- bitFlip(X$lower_mask)
+
+        X$MT <- integer(X$n1)
+        X$index <- X$n1+1
+        X
+}
+
+h2int <- function(inp){
+        # converts the hex masks to integer values
+        # for processing
+
+        # convert to raw
+        r <- h2raw(inp)
+        l <- length(r)
+        out = 0
+        # multiply the integer value of each byte by
+        # 256^(length-index value)
+        for(i in 1:l) out <- out +
+                as.integer(r[i])*(256^(l-i))
+        out
+}
+
+seed_mt <- function(rando,seed){
+        # seeding coded per pseudocode on wikipedia for
+        # MT19937
+
+        X <- rando
+        X$seed <- seed
+        X$MT[1] <- seed
+        for(i in 2:X$n1){
+                X$a1 <- X$MT[i-1]
+                X$a2 <- bitShiftR(X$MT[i-1],X$w1-2)
+                X$MT[i] <- (X$f1*(bitXor(X$a1,X$a2))+i) %% 2 ^ 32
+
+        }
+        X$index <- X$n1+1
+        X
+}
+
+extract_number <- function(rando){
+        X <- rando
+        # twist when end state is reached
+        if(X$index>length(X$MT)){
+                X <- twist(X)
+        }
+        # pull from correct index
+        X$y <- X$MT[X$index]
+
+        # shift right
+        X$y <- bitXor(
+                X$y,bitShiftR(X$y,X$u1)
+        )
+
+        # shift left and mask
+        X$y <- bitXor(
+                X$y,bitAnd(
+                        bitShiftL(X$y,X$s1)
+                        ,X$b1)
+        )
+
+        # shift left and mask
+        X$y <- bitXor(
+                X$y,bitAnd(
+                        bitShiftL(X$y,X$t1)
+                        ,X$c1)
+        )
+        # shift right
+        X$y <- bitXor(X$y, bitShiftR(X$y,X$l1))
+
+        # increment index
+        X$index <- X$index + 1
+        # return random object
+        X
+}
+
+twist <- function(rando){
+        X <- rando
+        for(i in 1:(X$n1-1)){
+                # x <- (MT[i] & upper_mask) +
+                #       (MT[(i+1) mod n] & lowermask)
+                x <- bitAnd(X$MT[i],X$upper_mask) +
+                        bitAnd(X$MT[((i) %% X$n1)+1], X$lower_mask)
+                # xA <- x >> 1
+                xA <- bitShiftR(x,1)
+
+                # if x is odd, xor xA,a
+                if (x %% 2 != 0){
+                        xA <- bitXor(xA,X$a1)
+                }
+                # MT[i] <- MT[(i + m) mod n] xor xA
+                X$MT[i] <- bitXor(X$MT[((i+X$m1) %% X$n1)+1], xA)
+        }
+        X$index <- 1
+        X
+}
+
+
+3.22.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("3.21.R")
+
+waitToRun <- function(){
+        aaa <<- as.integer(Sys.time())
+        Sys.sleep(sample(40:100,1))
+        RandSeed(as.integer(Sys.time()))
+        Sys.sleep(sample(40:100,1))
+        Rand()
+}
+
+# just set a = waitToRun output and run the below code
+# a <- waitToRun()
+# while(a != c){
+#         aaa <- aaa + 1
+#         c <- extract_number(i)
+# }
+
+
+
+3.23.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("3.21.R")
+
+distemper <- function(inp){
+        w <- 32
+        n <- 624
+        m <- 397
+        r <- 31
+        a <- h2int("9908b0df")
+        u <- 29
+        d <- h2int("ffffffff")
+        s <- 17
+        b <- h2int("9d2c5680")
+        t <- 37
+        c <- h2int("efc60000")
+        l <- 11
+        f <- 1812433253
+        inp <- unshiftR(inp,l)
+        inp <- unshiftL(inp,t,c)
+        inp <- unshiftL(inp,s,b)
+        inp <- unshiftR(inp,u)
+        inp
+}
+
+# First things First: UnRand Requires a 624-long integer vector
+# created by 'RandFeeder', as well 'RandObj', the pRNG that
+# we're trying to clone.
+
+# once you've initialized 'unRand' with arguments, you
+# should be able to use it without arguments to predict
+# future values of the 'Rand' function, which outputs
+# integers from the 'RandObj'
+
+unRand <- function(hackMT = c(), rando = c()){
+
+        # test for seed, re-seed if argument exists
+        if(length(hackMT)>0){
+
+        }
+
+        # pull the correct value from the object
+        hackRandObj <<- extract_number(hackRandObj)
+
+        # return that value
+        hackRandObj$y
+}
+
+RandFeeder <- function(){
+        seed_mt(RandObj,sample(1:2^30,1))
+        a <- c()
+        for(i in 1:624){
+                a[i] <- Rand()
+                a[i] <- distemper(a[i])
+        }
+        a
+}
+
+hackRand <- function(mt,rando){
+        # initialize a new random environment
+        hackRandObj <<- initRando()
+
+        # feed it the correct index and
+        hackRandObj$MT <<- mt
+        hackRandObj$index <<- rando$index
+
+        # pull the next value out
+        hackRandObj <<- extract_number(hackRandObj)
+
+        # return that value
+        hackRandObj$y
+}
+
+hackRando <- function(){
+
+        # initialization for MT19937 per the values
+        # given by wikipedia
+
+        X <- new.env()
+        X$w1 <- 32
+        X$n1 <- 624
+        X$m1 <- 397
+        X$r1 <- 31
+        X$a1 <- h2int("9908b0df")
+        X$u1 <- 29
+        X$d1 <- h2int("ffffffff")
+        X$s1 <- 17
+        X$b1 <- h2int("9d2c5680")
+        X$t1 <- 37
+        X$c1 <- h2int("efc60000")
+        X$l1 <- 43
+        X$f1 <- 1812433253
+
+        X$lower_mask <- (bitShiftL(1,X$r1-1)*2-1)
+        X$upper_mask <- bitFlip(X$lower_mask)
+
+        X$MT <- integer(X$n1)
+        X$index <- X$n1+1
+        X
+}
+
+unshiftR <- function(value,shift){
+        i <- 0
+        result <- 0
+        shift <- shift %% 32
+        while(i*shift < 32){
+                # partmask is a set of ones for the number of
+                # digits we can expect to be solved for
+                partmask <- bitShiftR(bitShiftL(-1,
+                                                32-shift
+                                                ),
+                                      shift*i
+                                      )
+                part <- bitAnd(value,
+                               partmask)
+                value <- bitXor(value,
+                                bitShiftR(part,
+                                          shift)
+                                )
+                result <- bitOr(part,
+                                result)
+                i <- i+1
+        }
+        result
+}
+
+unshiftL <- function(value,shift,mask){
+        i <- 0
+        result <- 0
+        shift <- shift  %% 32
+        while(i*shift < 32){
+                partmask <- bitShiftL(bitShiftR(-1,
+                                                32-shift
+                                                ),
+                                      shift*i)
+                part <- bitAnd(value,
+                               partmask)
+                value <- bitXor(value,
+                            bitAnd(mask,
+                                   bitShiftL(part,
+                                             shift)
+                                   )
+                            )
+                result <- bitOr(part,
+                                result)
+                i <- i+1
+        }
+        result
+}
+
+
+3.24.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("3.23.R")
+source("3.19.R")
+
+# VERY SLOW brute force break of the MT stream
+
+breakMTstream <- function(){
+
+        # Create "AAAAAAAAAAAAAAAA"
+        test <- rep(as.raw(65),16)
+
+        # create random bytes
+        rpre <- as.raw(sample(1:127,sample(1:12,1)))
+
+        # pick a random seed
+        s <- sample(1:2^16,1)
+
+        # pull "AAAA" from characters 13-16
+        a <- EnMT(c(rpre,test),seed=s)[13:16]
+
+        # convert it to an integer
+        b <- rawToInt(xor(a,rep(as.raw(65),4)))
+
+        # try the fourth output of every 16-bit integer
+        for(i in 1:2^16){
+                print(i) # print for progress (2^16 = 65,536)
+                Rand(i) # seed/run it
+                Rand()
+                Rand()
+                if(Rand()==b){
+                        cat("Seed: \n")
+                        return(i)
+                }
+        }
+        "Failure"
+}
+
+# makes random token
+makeToken <- function(){
+        x <- as.integer(Sys.time())
+        cat("Generating Token...\n")
+        Sys.sleep(sample(1:5,1))
+        cat("Token Generated\n")
+        EnMT("        ",x)
+}
+
+
+# returns T if token was generated in last five minutes
+findToken <- function(inp){
+        a = inp
+        x <- as.integer(Sys.time())
+        for(i in 0:300){
+                b <-EnMT("        ",x-i)
+                b <- b
+                if(sum(a==b)==8){
+                        return(T)
+                        break
+                }
+        }
+        return(F)
+}
+
+
+EnMT <- function(inp,seed,craw=T){
+
+        # verify seed is int
+        if(!is.integer(seed)){
+                stop("Integer required for argument 'seed'")
+                geterrmessage()
+        }
+        # Require 16 bit seed
+        seed <- seed %% 2^16
+
+        # convert inp to raw
+        if(is.character(inp)){
+                inp <- charToRaw(inp)
+        }
+
+        # init 'RandObj' if necessary
+        if(!exists("RandObj")) Rand(0)
+
+        # seed 'RandObj'
+        seed_mt(seed=seed,rando=RandObj)
+
+        # initialize output
+        out <- raw()
+
+        # generate random output until enough exists to XOR
+        # with input text
+        while(length(out)<length(inp)){
+                out <- c(out,intToRaw(Rand()))
+        }
+
+        # cut output to exactly input length
+        out <- out[1:length(inp)]
+
+        # xor out with input
+        out <- xor(out,inp)
+
+        # convert to character if requested
+        if(!craw) out <- rawToChar(out)
+        out
+}
+
+
+intToRaw <- function(inp){
+        out <- raw()
+        if(inp>2^32 | inp<0){
+                stop("Number out of range")
+                geterrmessage()
+        }
+
+        for(i in 1:4){
+                a <- inp %% 256
+                out <- c(as.raw(a),out)
+                inp <- inp %/% 256
+        }
+
+        out
+
+}
+
+
+rawToInt <- function(inp){
+        l <- length(inp)
+        out <- 0
+        if(l>4){
+                stop("Too many bits!")
+                geterrmessage()
+        }else if(l<1){
+                stop("Not enough bits!")
+                geterrmessage()
+        }else{
+                for(i in 0:l-1){
+                        out <- out + as.integer(inp[l-i])*256^i
+                }
+        }
+        out
+}
+
+
+4.25.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("3.19.R")
+
+# mainKey <- randkey()
+# set up cipher text
+salsa <- paste(readLines('4.25.Source.txt'),collapse="")
+ct4.25 <- EnCTR(DeECB(base64_decode(salsa),"YELLOW SUBMARINE"),
+                k=mainKey)
+
+
+CTReditor <- function(ct,k,offset,nt){
+        # decrypt
+        ct <- EnCTR(ct,k=mainKey)
+        # change a byte
+        ct[offset] <- as.raw(nt)
+        # re-encrypt
+        EnCTR(ct,k=mainKey)
+}
+
+breakCTR_rw <- function(inp){
+        # determine the length
+        l <- length(inp)
+        # initialize output vector
+        out <- raw()
+        # for each byte
+        for(j in 1:l){
+                # take the first 'j' bytes
+                x <- inp[1:j]
+                # sub in letters until the subbed ciphertext
+                # matches the unsubbed ciphertext
+                for(i in 1:127){
+                        if(all(CTReditor(x,mainKey,j,i)==x)) break
+                }
+                # append output
+                out <- c(out,as.raw(i))
+                # (hashtag)print4progress
+                cat(rawToChar(as.raw(i)))
+        }
+        out
+}
+
+
+4.26.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("3.19.R")
+source("2.16.R")
+
+mainKey <- randkey()
+
+bitflipEn2 <- function(inp){
+        if(!is.character(inp)){
+                stop("Character input required")
+                geterrmessage()
+        }
+        a1 <- "comment1=cooking%20MCs;userdata="
+        a2 <- ";comment2=20like%20a%20pound%20of%20bacon"
+
+        # strip invalid values ('=' and '&') out 'inp'
+        inp <- sub("=","",inp)
+        inp <- sub("&","",inp)
+
+        # paste the comments and 'inp' together, convert to raw, and pad
+        a <- paste(a1,inp,a2,sep="")
+        b <- charToRaw(a)
+        c <- padRaw(b,16)
+
+        # encrypt the output
+        EnCTR(c,k=mainKey)
+}
+
+bitflipDe2 <- function(inp){
+        if(!is.raw(inp)){
+                stop("Raw input required")
+                geterrmessage()
+        }
+
+        # decrypt, unpad and convert to character
+        a <- EnCTR(inp,k=mainKey)
+        b <- unpadRaw(a)
+        c <- rawToChar(b)
+        # determin if admin=true is in string
+        grepl(";admin=true;",c)
+}
+
+bitflipBreak2 <- function(b){
+        # create desired token
+        # '=' (char(61)) xor char(1) = '<' (char(60))
+        a <- ";admin<true"
+
+        # encrypt our stupid token
+        b <- bitflipEn2(a)
+        l <- length(b)
+
+        # for each byte of dumb token, xor (1)
+        for(i in 1:l){
+                # 0's, a 1, more zeros
+                x <- c(raw(i-1),as.raw(1),raw(l-i))
+
+                # test if that xor un-dumbs our stuff
+                # print 'i' when we break (character the
+                # bitflip worked for)
+                if(bitflipDe2(xor(x,b))){
+                        print(i)
+                        break
+                }
+        }
+
+}
+
+
+4.27.R
+
+
+setwd("C:/Users/u342907/Desktop/Pals")
+source("2.14.R")
+
+mainKey = randkey()
+
+bitflipEn3 <- function(inp){
+        if(!is.character(inp)){
+                stop("Character input required")
+                geterrmessage()
+        }
+        a1 <- "comment1=cooking%20MCs;userdata="
+        a2 <- ";comment2=20like%20a%20pound%20of%20bacon"
+
+        # strip invalid values ('=' and '&') out 'inp'
+        inp <- sub("=","",inp)
+        inp <- sub("&","",inp)
+
+        # paste the comments and 'inp' together, convert to raw, and pad
+        a <- paste(a1,inp,a2,sep="")
+        b <- charToRaw(a)
+        c <- padRaw(b,16)
+
+        # encrypt the output
+        EnCBC(c,mainKey,mainKey)
+}
+
+bitflipDe3 <- function(inp){
+        if(!is.raw(inp)){
+                stop("Raw input required")
+                geterrmessage()
+        }
+
+        # decrypt, unpad and convert to character
+        a <- DeCBC(inp,mainKey,mainKey)
+        if(is.character(a)) a <- charToRaw(a)
+        b <- unpadRaw(a)
+        # determine if admin=true is in string
+        for(i in b){
+                if(as.integer(i)>127){
+                        warning("Tampering may have occured")
+                        break
+                }
+        }
+
+        b
+}
+
+
+breakIVKey <- function(){
+        # split encryption into chunks
+        a <- chunk(bitflipEn3(""),16)
+
+        # set third chunk = 1
+        a[3] <- a[1]
+
+        # set second to 0's
+        a[2] <- list(raw(16))
+
+        # unchunk and decrypt
+        b <- unchunk(a)
+        c <- bitflipDe3(b)
+
+        # chunk and xor
+        d <- chunk(c,16)
+        xor(d[[1]],d[[3]])
+}
+
+
+4.28.R
+
+
+setwd('C:/Users/u342907/Desktop/Pals/')
+source("3.24.R")
+
+keyMac <- function(m,k){
+        # verify inputs
+        if(is.character(m)) m <- charToRaw(m)
+        if(is.character(k)) k <- charToRaw(k)
+
+        SHA1(c(k,m))
+}
+
+
+
+
+SHA1 <- function(inp){
+
+        # verify inputs
+        if(is.character(inp)) inp <- charToRaw(inp)
+        if(!is.raw(inp)) inp <- as.raw(inp)
+
+        # initialize variables
+        h0 <- h2raw("67452301")
+        h1 <- h2raw("EFCDAB89")
+        h2 <- h2raw("98BADCFE")
+        h3 <- h2raw("10325476")
+        h4 <- h2raw("C3D2E1F0")
+
+        ml <- 8*length(inp)
+
+        inp <- shaPre(inp)
+
+        a <- chunk(inp,64)
+        for(i in a){
+                w <- chunk(i,4)
+                for(j in 17:80){
+                        w[[j]] <- lrotate(
+                                chainXOR(w[[j-3]],
+                                         w[[j-8]],
+                                         w[[j-14]],
+                                         w[[j-16]]),
+                                1)
+                }
+                a <- h0
+                b <- h1
+                c <- h2
+                d <- h3
+                e <- h4
+
+                for(j in 1:80){
+                        if(1 <= j & j <= 20){
+                                f <- (b&c)|((!b)&d)
+                                k <- h2raw("5a827999")
+                        }else if(21 <= j & j <= 40){
+                                f <- chainXOR(b,c,d)
+                                k <- h2raw("6ed9eba1")
+                        }else if(41 <= j & j <= 60){
+                                f <- (b&c)|(b&d)|(c&d)
+                                k <- h2raw("6ed9eba1")
+                        }else if(61 <= j & j <= 80){
+                                f <- chainXOR(b,c,d)
+                                k <- h2raw("ca62c1d6")
+                        }
+
+                        temp <- rawToInt(lrotate(a,5)) +
+                                rawToInt(f) + rawToInt(e) +
+                                rawToInt(k) + rawToInt(w[[j]])
+                        temp <- intToRaw(temp %% 2^32)
+                        e <- d
+                        d <- c
+                        c <- lrotate(b,30)
+                        b <- a
+                        a <- temp
+                }
+
+                h0 <- intToRaw((rawToInt(h0) + rawToInt(a)) %% 2^32)
+                h1 <- intToRaw((rawToInt(h1) + rawToInt(b)) %% 2^32)
+                h2 <- intToRaw((rawToInt(h2) + rawToInt(c)) %% 2^32)
+                h3 <- intToRaw((rawToInt(h3) + rawToInt(d)) %% 2^32)
+                h4 <- intToRaw((rawToInt(h4) + rawToInt(e)) %% 2^32)
+        }
+
+        hh <- c(h0,h1,h2,h3,h4)
+        hh
+}
+
+lrotate <- function(inp,i){
+        out <- 0
+        if(is.raw(inp)) inp <- rawToInt(inp)
+        out <- bitShiftL(inp,i)
+        out <- out + bitShiftR(inp,32-i)
+        intToRaw(out)
+}
+
+chainXOR <- function(...){
+        x <- raw(1)
+        for(i in list(...)){
+                if(!is.raw(i)){
+                        stop("Raw input required")
+                        geterrmessage()
+                }
+        }
+        for(i in list(...)){
+                x <- xor(x,i)
+        }
+        x
+}
+
+shaPre <- function(inp){
+        ml <- length(inp)
+        # add a 1 and some 0's
+        inp <- c(inp,h2raw("80"))
+
+        # add more 0's
+        while(length(inp) %% 64!=56) inp <- c(inp,raw(1))
+
+        # add the message length
+        inp <- c(inp,longToRaw(ml*8))
+        inp
+}
+
+longToRaw <- function(inp){
+        out <- raw()
+        if(inp>2^64 | inp<0){
+                stop("Number out of range")
+                geterrmessage()
+        }
+        for(i in 1:8){
+                a <- inp %% 256
+                out <- c(as.raw(a),out)
+                inp <- inp %/% 256
+        }
+
+        out
+}
+
+
+rawToLong <- function(inp){
+        l <- length(inp)
+        out <- 0
+        if(l>8){
+                stop("Too many bits!")
+                geterrmessage()
+        }else if(l<1){
+                stop("Not enough bits!")
+                geterrmessage()
+        }else{
+                for(i in 0:l-1){
+                        out <- out + as.numeric(inp[l-i])*256^i
+                }
+        }
+        out
+}
+
+
+4.29.R
+
+
+setwd('C:/Users/u342907/Desktop/Pals/')
+source("4.28.R")
+
+
+
+gluepad <- function(ml){
+        # make a 1 and some 0's
+        out <- h2raw("80")
+
+        # add more 0's
+        while((ml+length(out)) %% 64!=56) out <- c(out,raw(1))
+
+        # add the message length
+        out <- c(out,longToRaw(ml*8))
+        out
+}
+
+SHA1hack <- function(inp,a1,b1,c1,d1,e1){
+
+        # verify inputs
+        if(is.character(inp)) inp <- charToRaw(inp)
+        if(!is.raw(inp)) inp <- as.raw(inp)
+
+        # initialize variables
+        h0 <- a1
+        h1 <- b1
+        h2 <- c1
+        h3 <- d1
+        h4 <- e1
+
+        ml <- 8*length(inp)
+
+        inp <- shaPre(inp)
+
+        a <- chunk(inp,64)
+
+        for(i in a){
+                w <- chunk(i,4)
+                for(j in 17:80){
+                        w[[j]] <- lrotate(
+                                chainXOR(w[[j-3]],
+                                         w[[j-8]],
+                                         w[[j-14]],
+                                         w[[j-16]]),
+                                1)
+                }
+                a <- h0
+                b <- h1
+                c <- h2
+                d <- h3
+                e <- h4
+
+                for(j in 1:80){
+                        if(1 <= j & j <= 20){
+                                f <- (b&c)|((!b)&d)
+                                k <- h2raw("5a827999")
+                        }else if(21 <= j & j <= 40){
+                                f <- chainXOR(b,c,d)
+                                k <- h2raw("6ed9eba1")
+                        }else if(41 <= j & j <= 60){
+                                f <- (b&c)|(b&d)|(c&d)
+                                k <- h2raw("6ed9eba1")
+                        }else if(61 <= j & j <= 80){
+                                f <- chainXOR(b,c,d)
+                                k <- h2raw("ca62c1d6")
+                        }
+
+                        temp <- rawToInt(lrotate(a,5)) +
+                                rawToInt(f) + rawToInt(e) +
+                                rawToInt(k) + rawToInt(w[[j]])
+                        temp <- intToRaw(temp %% 2^32)
+                        e <- d
+                        d <- c
+                        c <- lrotate(b,30)
+                        b <- a
+                        a <- temp
+                }
+
+                h0 <- intToRaw((rawToInt(h0) + rawToInt(a)) %% 2^32)
+                h1 <- intToRaw((rawToInt(h1) + rawToInt(b)) %% 2^32)
+                h2 <- intToRaw((rawToInt(h2) + rawToInt(c)) %% 2^32)
+                h3 <- intToRaw((rawToInt(h3) + rawToInt(d)) %% 2^32)
+                h4 <- intToRaw((rawToInt(h4) + rawToInt(e)) %% 2^32)
+
+        }
+
+        hh <- c(h0,h1,h2,h3,h4)
+        hh
+}
+
+
+bk <- "potatocannon"
+msg <- "comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon"
+hash <- SHA1(paste(bk,msg,sep=""))
+b <- chunk(hash,4)
+xmsg <- ";admin=true"
+cheat <- SHA1hack(xmsg,
+                  b[[1]],
+                  b[[2]],
+                  b[[3]],
+                  b[[4]],
+                  b[[5]])
+getTheLiar <- function(x,y,z){
+        out <- c()
+        for(i in 0:32){
+                txt <- paste(x,y,sep="")
+                out <- append(out,list(c(charToRaw(txt),
+                                    gluepad(length(txt)),
+                                    charToRaw(z))))
+
+        }
+        out
+}
+
+liar <- lapply(getTheLiar(bk,msg,xmsg),SHA1)
+
+
+
+
+
+
+
+
+
+Classy.R
+
+
+
+
+
+EnglishTest.R
+
+
+setwd("F:/R/Pals")
+
+English <- function(text){
+        testEnglish(text) < .05
+}
+
+EngMatrix <- function(text){
+        chr <- strsplit(text,split="")[[1]]
+        dat1 <- data.frame(chr,stringsAsFactors=FALSE)
+        dat1$num1 <- lapply(dat1$chr,FUN=function(x){
+                as.integer(charToRaw(x))
+        })
+
+        dat1$num2 <- c(rep(NA, 1), head(dat1$num1, -1))
+        mat1 <- matrix(data=0,nrow=128,ncol=128)
+        for(i in 2:(nrow(dat1)-1)){
+                a <- as.integer(dat1[i,2])
+                b <- as.integer(dat1[i,3])
+                mat1[a,b] <- mat1[a,b] + 1
+        }
+
+        mat1
+
+}
+
+EngList <- function(text){
+        chr <- strsplit(text,split="")[[1]]
+        dat1 <- data.frame(chr,stringsAsFactors=FALSE)
+        dat1$num1 <- lapply(dat1$chr,FUN=function(x){
+                as.integer(charToRaw(x))
+        })
+        mat1 <- matrix(data=0,nrow=128,ncol=1)
+        for(i in 1:nrow(dat1)){
+                a <- as.integer(dat1[i,2])
+                mat1[a,1] <- mat1[a,1] + 1
+        }
+
+        mat2 <- matrix(data=0,nrow=128,ncol=1)
+        for(i in 1:128){
+                mat2[i,1] = mat1[i,1]/sum(mat1,na.rm=TRUE)
+        }
+        mat2
+}
+
+getEnglish <- readChar("English.txt",file.info("English.txt")$size)
+
+StandardMatrix <- EngMatrix(getEnglish)
+StandardList <- EngList(getEnglish)
+
+testEnglish <- function(inp,
+                        sm=StandardMatrix,
+                        sl=StandardList){
+        a <- abs(EngMatrix(inp)-sm)
+        b <- abs(EngList(inp)-sl)
+
+
+        for(i in 1:128){
+                for(j in 1:128){
+                        a[i,j] <- a[i,j]*b[j,1]
+                }
+        }
+
+        sum(a,na.rm=TRUE)
+}
+
+
+EnglishTest2.R
+
+
+unigram <- function(){
+        freq <- c(0.08167,0.01492,0.02782,0.04253,0.12702,0.02228,0.02015,0.06094,0.06966,0.00153,0.00772,0.04025,0.02406,0.06749,0.07507,0.01929,0.00095,0.05987,0.06327,0.09056,0.02758,0.00978,0.0236,0.0015,0.01974,0.00074)
+        data.frame(letters,freq,stringsAsFactors = FALSE)
+}
+
+grammer <- function(text){
+        cases <- strsplit(text,"")[[1]]
+        text <- tolower(text)
+        a <- strsplit(text,"")[[1]]
+        x <- length(a)
+        z <- unlist(lapply(a,FUN = function(x){
+                tolower(x) %in% c(letters,".","'",'"',","," ")
+        }
+        ))
+        spaces <- length(a)/(length(a[a==" "])+1)
+        a <- a[z]
+        z <- sum(z)
+        b <- c(" ",a)
+        a <- c(a," ")
+        x <- x-length(a)
+        out <- paste(b,a,sep="")
+        sum(z)/(x+length(a))-abs(spaces-5.5)/5
+
+}
+
+
+grammer2 <- function(text){
+        cases <- strsplit(text,"")[[1]]
+        a <- strsplit(text,"")[[1]]
+        x <- length(a)
+        # get a count of letters and spaces
+        z <- unlist(lapply(a,FUN = function(x){
+                x %in% c(LETTERS,letters," ")
+        }))
+        b <- sum(z)/x
+
+        c <- a[unlist(lapply(a,FUN = function(x){
+                x %in% c(LETTERS,letters)
+        }))]
+
+        # compare frequency with standard
+        d <- converter(c)[,2]
+        e <- unigram()[,2]
+        # math a little bit to normalize
+        f <- abs(d-e)
+        g <- 1-f
+        g <- g[g==min(g)]
+        g <- g[g==min(g)]
+
+        # add bias against capital letters
+        h <- sum(unlist(lapply(a,FUN = function(x){
+                x %in% c(LETTERS)
+        })))
+        prod(g)*b-(.0001*h)
+
+}
+
+
+
+alternate <- function(List1,List2){
+        len <- max(length(List1),length(List2))
+        List1 <- List1[1:len]
+        List2 <- List2[1:len]
+        outList <- unlist(as.list(matrix(c(List1,List2),
+                                  ncol=len,
+                                  byrow=TRUE)))
+        outList[!is.na(outList)]
+}
+
+converter <- function(inp){
+        p <- unigram()
+        p[,2] <- 0
+        for(x in inp){
+                q <- match(tolower(x),letters)
+                p[q,2] <- p[q,2]+1
+        }
+        y <- sum(p[,2])
+        p[,2] <- p[,2]/y
+        p
+}
+
+
+Outputter.R
+
+
+setwd('C:/Users/u342907/Desktop/Pals/')
+
+getFiles <- function(){
+        a <- list.files(getwd(),pattern="*.R")
+        b <- lapply(a,FUN=function(x){
+                paste(readLines(x),collapse="\n")
+                }
+                )
+        colie <-paste(rep(rawToChar(as.raw(10)),3),collapse="")
+        d <- paste(c(rbind(a,b)),collapse=colie)
+        write(d,file="outie.txt")
+
+}
